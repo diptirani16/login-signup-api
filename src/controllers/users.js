@@ -4,16 +4,18 @@ const User = require('../models/users');
 const { hashPassword, verifyPassword } = require('../services/auth');
 
 const jsonwebtoken = require('jsonwebtoken');
+const { sign } = require('../services/token');
 
 module.exports.signup = async (req, res) => {
     try {
         const { email, password } = req.body;
         if(!email || !password) return res.status(400).send({success: false, message: "All the fields are mandatory!!"});
-        const hash = hashPassword(password);
-        await User.create({
+        const hash = await hashPassword(password);
+        const user = new User({
             email,
             password: hash
         })
+        await user.save();
         return res.status(201).send({success: true, message: 'User Registered!!'});
     } catch (error) {
         console.log(error);
@@ -29,10 +31,11 @@ module.exports.signup = async (req, res) => {
 module.exports.login = async (req, res) => {
     try {
         const {email, password} = req.body
-        const user = User.findOne({ email })
+        const user = await User.findOne({ email })
         if(!user) return res.status(404).send({success: false, message: 'User not registered !!'})
-        const isValid = verifyPassword(user.password, password);
+        const isValid = await verifyPassword(user.password, password);
         if(isValid) {
+            const token = await sign(user);
             return res.status(200).send({success: true, message: 'Login Successfull !!', result: { token, user: jsonwebtoken.decode(token) }})
         }
     } catch (error) {
